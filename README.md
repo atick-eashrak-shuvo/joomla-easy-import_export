@@ -113,9 +113,6 @@ Migrating or cloning Joomla sites is usually painful:
 3. Upload the ZIP file and install
 4. Open the component via **Components → Easy Import/Export**
 
-> If you previously used `com_modulemanager`, uninstall it first.  
-> `com_easyimportexport` is the renamed and expanded version.
-
 ---
 
 ## 🧑‍💻 Usage
