@@ -1,0 +1,2 @@
+-- Module Manager uses core Joomla tables (#__modules, #__modules_menu)
+-- No custom tables needed
