@@ -1,0 +1,1 @@
+-- Easy Import/Export J3 - No custom tables needed

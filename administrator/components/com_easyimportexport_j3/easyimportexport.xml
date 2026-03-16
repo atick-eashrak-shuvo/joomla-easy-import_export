@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<extension type="component" method="upgrade">
+<extension type="component" version="3.0" method="upgrade">
     <name>com_easyimportexport</name>
     <author>Atick Eashrak Shuvo</author>
     <creationDate>March 2026</creationDate>
@@ -9,7 +9,6 @@
     <authorUrl>https://github.com/atick-eashrak-shuvo</authorUrl>
     <version>2.0.0</version>
     <description>COM_EASYIMPORTEXPORT_XML_DESCRIPTION</description>
-    <namespace path="src">Joomla\Component\Easyimportexport</namespace>
 
     <scriptfile>script.php</scriptfile>
 
@@ -25,19 +24,21 @@
     </uninstall>
 
     <administration>
-        <menu view="modules" link="option=com_easyimportexport" img="class:module">COM_EASYIMPORTEXPORT</menu>
-        <files folder=".">
+        <menu img="class:module">COM_EASYIMPORTEXPORT</menu>
+        <files folder="admin">
+            <filename>easyimportexport.php</filename>
+            <filename>controller.php</filename>
             <filename>access.xml</filename>
             <filename>config.xml</filename>
-            <folder>services</folder>
-            <folder>src</folder>
-            <folder>tmpl</folder>
+            <folder>controllers</folder>
+            <folder>models</folder>
+            <folder>views</folder>
             <folder>language</folder>
             <folder>sql</folder>
         </files>
-        <languages folder="language">
-            <language tag="en-GB">en-GB/com_easyimportexport.ini</language>
-            <language tag="en-GB">en-GB/com_easyimportexport.sys.ini</language>
+        <languages folder="admin/language">
+            <language tag="en-GB">en-GB/en-GB.com_easyimportexport.ini</language>
+            <language tag="en-GB">en-GB/en-GB.com_easyimportexport.sys.ini</language>
         </languages>
     </administration>
 </extension>

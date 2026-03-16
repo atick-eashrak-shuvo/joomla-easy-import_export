@@ -10,6 +10,15 @@ use Joomla\Database\DatabaseInterface;
 
 class ModulesModel extends BaseDatabaseModel
 {
+    protected function filterColumns(DatabaseInterface $db, string $table, array $data): array
+    {
+        static $columnCache = [];
+        if (!isset($columnCache[$table])) {
+            $columnCache[$table] = array_keys($db->getTableColumns($table));
+        }
+        return array_intersect_key($data, array_flip($columnCache[$table]));
+    }
+
     public function getModules(int $clientId = -1, string $search = '', string $position = '', int $state = -3): array
     {
         $db = $this->getDatabase();
@@ -316,15 +325,12 @@ class ModulesModel extends BaseDatabaseModel
 
     protected function insertModule(DatabaseInterface $db, array $data): ?int
     {
-        $columns = [
-            'title', 'note', 'content', 'ordering', 'position',
-            'published', 'module', 'access', 'showtitle', 'params',
-            'client_id', 'language', 'publish_up', 'publish_down', 'asset_id',
-        ];
+        $data = $this->filterColumns($db, '#__modules', $data);
+        unset($data['id']);
 
         $obj = new \stdClass();
-        foreach ($columns as $col) {
-            $obj->$col = $data[$col] ?? null;
+        foreach ($data as $col => $val) {
+            $obj->$col = $val;
         }
 
         $obj->checked_out = 0;
@@ -339,17 +345,11 @@ class ModulesModel extends BaseDatabaseModel
 
     protected function updateModule(DatabaseInterface $db, array $data): bool
     {
-        $columns = [
-            'id', 'title', 'note', 'content', 'ordering', 'position',
-            'published', 'module', 'access', 'showtitle', 'params',
-            'client_id', 'language', 'publish_up', 'publish_down',
-        ];
+        $data = $this->filterColumns($db, '#__modules', $data);
 
         $obj = new \stdClass();
-        foreach ($columns as $col) {
-            if (isset($data[$col])) {
-                $obj->$col = $data[$col];
-            }
+        foreach ($data as $col => $val) {
+            $obj->$col = $val;
         }
 
         return $db->updateObject('#__modules', $obj, 'id');

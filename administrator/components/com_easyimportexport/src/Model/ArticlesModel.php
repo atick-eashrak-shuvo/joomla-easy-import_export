@@ -10,6 +10,15 @@ use Joomla\Database\DatabaseInterface;
 
 class ArticlesModel extends BaseDatabaseModel
 {
+    protected function filterColumns(DatabaseInterface $db, string $table, array $data): array
+    {
+        static $columnCache = [];
+        if (!isset($columnCache[$table])) {
+            $columnCache[$table] = array_keys($db->getTableColumns($table));
+        }
+        return array_intersect_key($data, array_flip($columnCache[$table]));
+    }
+
     public function getCategories(string $search = ''): array
     {
         $db = $this->getDatabase();
@@ -277,6 +286,8 @@ class ArticlesModel extends BaseDatabaseModel
                     $article['asset_id'] = 0;
                     $newId = $this->insertArticle($db, $article);
                     if ($newId) {
+                        $this->ensureArticleAsset($db, $newId, $article['title'] ?? '', (int) ($article['catid'] ?? 0));
+                        $this->ensureWorkflowAssociation($db, $newId);
                         $result['imported']++;
                     } else {
                         $result['skipped']++;
@@ -289,6 +300,125 @@ class ArticlesModel extends BaseDatabaseModel
         }
 
         return $result;
+    }
+
+    protected function ensureArticleAsset(DatabaseInterface $db, int $articleId, string $title, int $catId): void
+    {
+        $assetName = 'com_content.article.' . $articleId;
+
+        $parentAssetId = 1;
+        if ($catId > 0) {
+            $query = $db->getQuery(true)
+                ->select($db->quoteName('asset_id'))
+                ->from($db->quoteName('#__categories'))
+                ->where($db->quoteName('id') . ' = :catid')
+                ->bind(':catid', $catId, \Joomla\Database\ParameterType::INTEGER);
+            $db->setQuery($query);
+            $catAssetId = (int) $db->loadResult();
+            if ($catAssetId > 0) {
+                $parentAssetId = $catAssetId;
+            }
+        }
+
+        if ($parentAssetId <= 1) {
+            $query = $db->getQuery(true)
+                ->select($db->quoteName('id'))
+                ->from($db->quoteName('#__assets'))
+                ->where($db->quoteName('name') . ' = ' . $db->quote('com_content'));
+            $db->setQuery($query);
+            $componentAssetId = (int) $db->loadResult();
+            if ($componentAssetId > 0) {
+                $parentAssetId = $componentAssetId;
+            }
+        }
+
+        $query = $db->getQuery(true)
+            ->select($db->quoteName('id'))
+            ->from($db->quoteName('#__assets'))
+            ->where($db->quoteName('name') . ' = :name')
+            ->bind(':name', $assetName);
+        $db->setQuery($query);
+
+        if ($db->loadResult()) {
+            return;
+        }
+
+        $query = $db->getQuery(true)
+            ->select([$db->quoteName('lft'), $db->quoteName('rgt')])
+            ->from($db->quoteName('#__assets'))
+            ->where($db->quoteName('id') . ' = :pid')
+            ->bind(':pid', $parentAssetId, \Joomla\Database\ParameterType::INTEGER);
+        $db->setQuery($query);
+        $parent = $db->loadObject();
+
+        $lft = $parent ? (int) $parent->rgt : 0;
+        $rgt = $lft + 1;
+
+        if ($parent) {
+            $db->setQuery('UPDATE ' . $db->quoteName('#__assets') . ' SET ' . $db->quoteName('rgt') . ' = ' . $db->quoteName('rgt') . ' + 2 WHERE ' . $db->quoteName('rgt') . ' >= ' . $lft);
+            $db->execute();
+            $db->setQuery('UPDATE ' . $db->quoteName('#__assets') . ' SET ' . $db->quoteName('lft') . ' = ' . $db->quoteName('lft') . ' + 2 WHERE ' . $db->quoteName('lft') . ' > ' . $lft);
+            $db->execute();
+        }
+
+        $asset = new \stdClass();
+        $asset->parent_id = $parentAssetId;
+        $asset->lft = $lft;
+        $asset->rgt = $rgt;
+        $asset->level = $parent ? 4 : 1;
+        $asset->name = $assetName;
+        $asset->title = $title;
+        $asset->rules = '{}';
+        $db->insertObject('#__assets', $asset, 'id');
+
+        $db->setQuery('UPDATE ' . $db->quoteName('#__content') . ' SET ' . $db->quoteName('asset_id') . ' = ' . (int) $asset->id . ' WHERE ' . $db->quoteName('id') . ' = ' . $articleId);
+        $db->execute();
+    }
+
+    protected function ensureWorkflowAssociation(DatabaseInterface $db, int $articleId): void
+    {
+        $tables = $db->getTableList();
+        $prefix = $db->getPrefix();
+
+        if (!in_array($prefix . 'workflow_associations', $tables, true)) {
+            return;
+        }
+
+        $ext = 'com_content.article';
+        $query = $db->getQuery(true)
+            ->select($db->quoteName('item_id'))
+            ->from($db->quoteName('#__workflow_associations'))
+            ->where($db->quoteName('item_id') . ' = :aid')
+            ->where($db->quoteName('extension') . ' = :ext')
+            ->bind(':aid', $articleId, \Joomla\Database\ParameterType::INTEGER)
+            ->bind(':ext', $ext);
+        $db->setQuery($query);
+
+        if ($db->loadResult()) {
+            return;
+        }
+
+        $defaultStageId = 1;
+        $query = $db->getQuery(true)
+            ->select($db->quoteName('s.id'))
+            ->from($db->quoteName('#__workflow_stages', 's'))
+            ->join('INNER', $db->quoteName('#__workflows', 'w'), $db->quoteName('w.id') . ' = ' . $db->quoteName('s.workflow_id'))
+            ->where($db->quoteName('w.default') . ' = 1')
+            ->where($db->quoteName('w.published') . ' = 1')
+            ->where($db->quoteName('s.default') . ' = 1')
+            ->setLimit(1);
+        $db->setQuery($query);
+        $stageId = (int) $db->loadResult();
+
+        if ($stageId > 0) {
+            $defaultStageId = $stageId;
+        }
+
+        $assoc = new \stdClass();
+        $assoc->item_id = $articleId;
+        $assoc->stage_id = $defaultStageId;
+        $assoc->extension = $ext;
+        $db->insertObject('#__workflow_associations', $assoc);
     }
 
     protected function importCategoriesOnly(DatabaseInterface $db, array $categories, bool $overwrite): array
@@ -343,7 +473,70 @@ class ArticlesModel extends BaseDatabaseModel
         }
 
         $cat['asset_id'] = 0;
-        return $this->insertCategory($db, $cat);
+        $newId = $this->insertCategory($db, $cat);
+        if ($newId) {
+            $this->ensureCategoryAsset($db, $newId, $cat['title'] ?? '', $extension);
+        }
+        return $newId;
+    }
+
+    protected function ensureCategoryAsset(DatabaseInterface $db, int $catId, string $title, string $extension): void
+    {
+        $assetName = $extension . '.category.' . $catId;
+
+        $query = $db->getQuery(true)
+            ->select($db->quoteName('id'))
+            ->from($db->quoteName('#__assets'))
+            ->where($db->quoteName('name') . ' = :name')
+            ->bind(':name', $assetName);
+        $db->setQuery($query);
+
+        if ($db->loadResult()) {
+            return;
+        }
+
+        $parentAssetId = 1;
+        $query = $db->getQuery(true)
+            ->select($db->quoteName('id'))
+            ->from($db->quoteName('#__assets'))
+            ->where($db->quoteName('name') . ' = :ext')
+            ->bind(':ext', $extension);
+        $db->setQuery($query);
+        $extAssetId = (int) $db->loadResult();
+        if ($extAssetId > 0) {
+            $parentAssetId = $extAssetId;
+        }
+
+        $query = $db->getQuery(true)
+            ->select([$db->quoteName('lft'), $db->quoteName('rgt')])
+            ->from($db->quoteName('#__assets'))
+            ->where($db->quoteName('id') . ' = :pid')
+            ->bind(':pid', $parentAssetId, \Joomla\Database\ParameterType::INTEGER);
+        $db->setQuery($query);
+        $parent = $db->loadObject();
+
+        $lft = $parent ? (int) $parent->rgt : 0;
+        $rgt = $lft + 1;
+
+        if ($parent) {
+            $db->setQuery('UPDATE ' . $db->quoteName('#__assets') . ' SET ' . $db->quoteName('rgt') . ' = ' . $db->quoteName('rgt') . ' + 2 WHERE ' . $db->quoteName('rgt') . ' >= ' . $lft);
+            $db->execute();
+            $db->setQuery('UPDATE ' . $db->quoteName('#__assets') . ' SET ' . $db->quoteName('lft') . ' = ' . $db->quoteName('lft') . ' + 2 WHERE ' . $db->quoteName('lft') . ' > ' . $lft);
+            $db->execute();
+        }
+
+        $asset = new \stdClass();
+        $asset->parent_id = $parentAssetId;
+        $asset->lft = $lft;
+        $asset->rgt = $rgt;
+        $asset->level = 3;
+        $asset->name = $assetName;
+        $asset->title = $title;
+        $asset->rules = '{}';
+        $db->insertObject('#__assets', $asset, 'id');
+
+        $db->setQuery('UPDATE ' . $db->quoteName('#__categories') . ' SET ' . $db->quoteName('asset_id') . ' = ' . (int) $asset->id . ' WHERE ' . $db->quoteName('id') . ' = ' . $catId);
+        $db->execute();
     }
 
     protected function findExistingArticle(DatabaseInterface $db, int $id, string $alias): ?object
@@ -375,17 +568,12 @@ class ArticlesModel extends BaseDatabaseModel
 
     protected function insertArticle(DatabaseInterface $db, array $data): ?int
     {
-        $cols = [
-            'title', 'alias', 'introtext', 'fulltext', 'state', 'catid',
-            'created', 'created_by', 'created_by_alias', 'modified', 'modified_by',
-            'publish_up', 'publish_down', 'images', 'urls', 'attribs', 'version',
-            'ordering', 'metakey', 'metadesc', 'access', 'hits', 'metadata',
-            'featured', 'language', 'note', 'asset_id',
-        ];
+        $data = $this->filterColumns($db, '#__content', $data);
+        unset($data['id']);
 
         $obj = new \stdClass();
-        foreach ($cols as $col) {
-            $obj->$col = $data[$col] ?? null;
+        foreach ($data as $col => $val) {
+            $obj->$col = $val;
         }
         $obj->checked_out = 0;
         $obj->checked_out_time = null;
@@ -398,19 +586,11 @@ class ArticlesModel extends BaseDatabaseModel
 
     protected function updateArticle(DatabaseInterface $db, array $data): bool
     {
-        $cols = [
-            'id', 'title', 'alias', 'introtext', 'fulltext', 'state', 'catid',
-            'created', 'created_by', 'created_by_alias', 'modified', 'modified_by',
-            'publish_up', 'publish_down', 'images', 'urls', 'attribs', 'version',
-            'ordering', 'metakey', 'metadesc', 'access', 'hits', 'metadata',
-            'featured', 'language', 'note',
-        ];
+        $data = $this->filterColumns($db, '#__content', $data);
 
         $obj = new \stdClass();
-        foreach ($cols as $col) {
-            if (isset($data[$col])) {
-                $obj->$col = $data[$col];
-            }
+        foreach ($data as $col => $val) {
+            $obj->$col = $val;
         }
 
         return $db->updateObject('#__content', $obj, 'id');
@@ -418,17 +598,12 @@ class ArticlesModel extends BaseDatabaseModel
 
     protected function insertCategory(DatabaseInterface $db, array $data): ?int
     {
-        $cols = [
-            'parent_id', 'lft', 'rgt', 'level', 'path', 'extension',
-            'title', 'alias', 'note', 'description', 'published', 'access',
-            'params', 'metadesc', 'metakey', 'metadata', 'created_user_id',
-            'created_time', 'modified_user_id', 'modified_time', 'hits',
-            'language', 'version', 'asset_id',
-        ];
+        $data = $this->filterColumns($db, '#__categories', $data);
+        unset($data['id']);
 
         $obj = new \stdClass();
-        foreach ($cols as $col) {
-            $obj->$col = $data[$col] ?? null;
+        foreach ($data as $col => $val) {
+            $obj->$col = $val;
         }
         $obj->checked_out = 0;
         $obj->checked_out_time = null;
@@ -441,17 +616,11 @@ class ArticlesModel extends BaseDatabaseModel
 
     protected function updateCategory(DatabaseInterface $db, array $data): bool
     {
-        $cols = [
-            'id', 'parent_id', 'level', 'path', 'extension', 'title', 'alias',
-            'note', 'description', 'published', 'access', 'params', 'metadesc',
-            'metakey', 'metadata', 'language',
-        ];
+        $data = $this->filterColumns($db, '#__categories', $data);
 
         $obj = new \stdClass();
-        foreach ($cols as $col) {
-            if (isset($data[$col])) {
-                $obj->$col = $data[$col];
-            }
+        foreach ($data as $col => $val) {
+            $obj->$col = $val;
         }
 
         return $db->updateObject('#__categories', $obj, 'id');

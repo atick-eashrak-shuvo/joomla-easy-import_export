@@ -10,6 +10,15 @@ use Joomla\Database\DatabaseInterface;
 
 class MenusModel extends BaseDatabaseModel
 {
+    protected function filterColumns(DatabaseInterface $db, string $table, array $data): array
+    {
+        static $columnCache = [];
+        if (!isset($columnCache[$table])) {
+            $columnCache[$table] = array_keys($db->getTableColumns($table));
+        }
+        return array_intersect_key($data, array_flip($columnCache[$table]));
+    }
+
     public function getMenuTypes(): array
     {
         $db = $this->getDatabase();
@@ -171,6 +180,7 @@ class MenusModel extends BaseDatabaseModel
             $this->ensureMenuType($db, $type);
         }
 
+        $installedComponents = $this->getInstalledComponents($db);
         $idMap = [];
 
         usort($menuItems, fn($a, $b) => ($a['level'] ?? 1) <=> ($b['level'] ?? 1));
@@ -179,6 +189,22 @@ class MenusModel extends BaseDatabaseModel
             try {
                 $originalId = (int) ($item['id'] ?? 0);
                 $menuAssignments = [];
+
+                $itemType = $item['type'] ?? 'component';
+                if ($itemType === 'component') {
+                    $link = $item['link'] ?? '';
+                    $componentOption = $this->extractOptionFromLink($link);
+                    if (!empty($componentOption) && !in_array($componentOption, $installedComponents, true)) {
+                        $result['warnings'][] = sprintf(
+                            'Menu item "%s" requires component "%s" which is not installed. Skipped.',
+                            $item['title'] ?? 'Unknown',
+                            $componentOption
+                        );
+                        $result['skipped']++;
+                        continue;
+                    }
+                }
+
                 unset($item['id'], $item['checked_out'], $item['checked_out_time'], $item['asset_id']);
 
                 if (isset($item['parent_id']) && isset($idMap[(int)$item['parent_id']])) {
@@ -271,16 +297,12 @@ class MenusModel extends BaseDatabaseModel
 
     protected function insertMenuItem(DatabaseInterface $db, array $data): ?int
     {
-        $cols = [
-            'menutype', 'title', 'alias', 'note', 'path', 'link', 'type',
-            'published', 'parent_id', 'level', 'component_id', 'browserNav',
-            'access', 'img', 'template_style_id', 'params', 'home', 'language',
-            'client_id', 'publish_up', 'publish_down', 'lft', 'rgt', 'asset_id',
-        ];
+        $data = $this->filterColumns($db, '#__menu', $data);
+        unset($data['id']);
 
         $obj = new \stdClass();
-        foreach ($cols as $col) {
-            $obj->$col = $data[$col] ?? null;
+        foreach ($data as $col => $val) {
+            $obj->$col = $val;
         }
         $obj->checked_out = 0;
         $obj->checked_out_time = null;
@@ -293,20 +315,34 @@ class MenusModel extends BaseDatabaseModel
 
     protected function updateMenuItem(DatabaseInterface $db, array $data): bool
     {
-        $cols = [
-            'id', 'menutype', 'title', 'alias', 'note', 'path', 'link', 'type',
-            'published', 'parent_id', 'level', 'component_id', 'browserNav',
-            'access', 'img', 'template_style_id', 'params', 'home', 'language',
-            'client_id', 'publish_up', 'publish_down',
-        ];
+        $data = $this->filterColumns($db, '#__menu', $data);
 
         $obj = new \stdClass();
-        foreach ($cols as $col) {
-            if (isset($data[$col])) {
-                $obj->$col = $data[$col];
-            }
+        foreach ($data as $col => $val) {
+            $obj->$col = $val;
         }
 
         return $db->updateObject('#__menu', $obj, 'id');
+    }
+
+    protected function getInstalledComponents(DatabaseInterface $db): array
+    {
+        $query = $db->getQuery(true)
+            ->select($db->quoteName('element'))
+            ->from($db->quoteName('#__extensions'))
+            ->where($db->quoteName('type') . ' = ' . $db->quote('component'));
+        $db->setQuery($query);
+        return $db->loadColumn();
+    }
+
+    protected function extractOptionFromLink(string $link): string
+    {
+        if (empty($link)) {
+            return '';
+        }
+        if (preg_match('/[?&]option=([a-zA-Z0-9_]+)/', $link, $matches)) {
+            return $matches[1];
+        }
+        return '';
     }
 }

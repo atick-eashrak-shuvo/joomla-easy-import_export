@@ -1,11 +1,27 @@
 # Easy Import/Export for Joomla
 
-**Version:** 1.0.0
+**Version:** 2.0.0
 **Author:** Atick Eashrak Shuvo
-**License:** GNU General Public License v2 or later
-**Compatibility:** Joomla 4.0+, Joomla 5.x, Joomla 6.x (PHP 8.1+)
+**License:** GNU General Public License v3 or later
+**Compatibility:** Joomla 3.4+, 4.x, 5.x, 6.x
 
-A powerful Joomla administrator component that lets you import and export modules, menus, articles, categories, and users with their full configurations using portable JSON files.
+A powerful Joomla administrator component that lets you import and export modules, menus, articles, categories, and users with their full configurations using portable JSON files. **Export from any Joomla version and import into any other.**
+
+---
+
+## Two Packages, One Format
+
+| Package | Joomla Version | PHP Version | File |
+|---------|---------------|-------------|------|
+| **J4/5/6 Edition** | 4.0+ / 5.x / 6.x | PHP 8.1+ | `com_easyimportexport_v2.0.0.zip` |
+| **J3 Edition** | 3.4 – 3.10 | PHP 5.6+ | `com_easyimportexport_j3_v2.0.0.zip` |
+
+Both packages produce the **same JSON export format**, enabling seamless cross-version migration:
+
+- Export from Joomla 3 → Import into Joomla 5 or 6
+- Export from Joomla 5 → Import into Joomla 3
+- Export from Joomla 4 → Import into Joomla 6
+- Any combination works
 
 ---
 
@@ -30,6 +46,8 @@ A powerful Joomla administrator component that lets you import and export module
 - Maintains parent-child relationships with ID remapping during import
 - Import with optional overwrite — matches by ID or alias+menutype
 - Supports all menu item types (component, URL, alias, separator, heading)
+- **Component validation** — verifies that required components are installed on the target site before importing component-type menu items; skips missing ones with clear warnings
+- Non-component menu items (URL, alias, separator, heading) are always imported safely
 
 ### Articles Import/Export
 
@@ -59,27 +77,50 @@ A powerful Joomla administrator component that lets you import and export module
 - **Search and filter** options for every data type
 - **Bulk selection** with select-all checkboxes
 - **Drag & drop file upload** for imports with file size display
-- **Bootstrap 5 modals** for import dialogs
-- **Dark mode support** — fully adapts to Joomla's admin dark theme using CSS custom properties
+- **Dark mode support** (J4/5/6 version) — fully adapts to Joomla's admin dark theme using CSS custom properties
 
-### Cross-Version Compatibility (Joomla 4 / 5 / 6)
+### Cross-Version Import/Export
 
-- Uses Joomla's modern MVC architecture with namespaced classes and service providers
-- `checked_out` column handling compatible with both J4 (`NOT NULL DEFAULT 0`) and J5+ (`DEFAULT NULL`)
-- `authProvider` user column detected dynamically — works on J4 (where it doesn't exist) and J5+ (where it does)
-- Proper CSRF token validation using redirect instead of `die()`
-- `DisplayController::display()` uses `static` return type compatible with both J4 and J5+ signatures
-- `Uri::root()` explicitly cast to string for consistent JSON serialization
-- Requires PHP 8.1+ (covers Joomla 4.4+, all Joomla 5.x, and Joomla 6.x)
+The `filterColumns()` system in both editions automatically handles schema differences between Joomla versions:
+
+- Columns that exist in the export but not in the target database table are silently skipped
+- Columns like `checked_out` (NOT NULL in J4, nullable in J5+) are handled correctly
+- The `authProvider` column (J5+ only) is included when available, ignored when not
+- J3 exports with different column sets import cleanly into J4/5/6 and vice versa
 
 ---
 
 ## Installation
 
-1. Download `com_easyimportexport_v1.0.0.zip`
+### Joomla 4 / 5 / 6
+
+1. Download `com_easyimportexport_v2.0.0.zip`
 2. In the Joomla administrator, go to **System → Install → Extensions**
 3. Upload the ZIP file and install
 4. Access the component from the admin sidebar: **Components → Easy Import/Export**
+
+### Joomla 3
+
+1. Download `com_easyimportexport_j3_v2.0.0.zip`
+2. In the Joomla administrator, go to **Extensions → Extension Manager → Upload Package File**
+3. Upload the ZIP file and install
+4. Access the component from the admin menu: **Components → Easy Import/Export**
+
+---
+
+## Cross-Version Migration Guide
+
+### Example: Migrate from Joomla 3 to Joomla 5
+
+1. Install the **J3 Edition** on your Joomla 3 site
+2. Export modules, menus, articles, and users as JSON files
+3. Install the **J4/5/6 Edition** on your Joomla 5 site
+4. Import each JSON file — the component automatically handles schema differences
+
+### Example: Migrate from Joomla 5 to Joomla 6
+
+1. Export from Joomla 5 using the J4/5/6 Edition
+2. Import into Joomla 6 using the same J4/5/6 Edition
 
 ---
 
@@ -102,21 +143,27 @@ All exports use JSON format with the following structure:
 }
 ```
 
-Export files are fully portable between Joomla sites. The importer handles ID conflicts, missing dependencies, and schema differences automatically.
+Export files are fully portable between any Joomla version (3, 4, 5, 6). The importer handles ID conflicts, missing dependencies, and schema differences automatically.
 
 ---
 
 ## Requirements
 
-| Requirement | Minimum |
-|-------------|---------|
-| Joomla | 4.0.0 |
-| PHP | 8.1 |
-| MySQL | 5.7+ / MariaDB 10.3+ |
+| Edition | Joomla | PHP | MySQL |
+|---------|--------|-----|-------|
+| J4/5/6 | 4.0.0+ | 8.1+ | 5.7+ / MariaDB 10.3+ |
+| J3 | 3.4.0+ | 5.6+ | 5.5+ / MariaDB 10.0+ |
 
 ---
 
 ## Changelog
+
+### 2.0.0 (March 2026)
+
+- Menu import now validates that required components are installed on the target site
+- Component-type menu items pointing to missing extensions are skipped with warnings
+- Non-component menu items (URL, alias, separator, heading) always import safely
+- Both J3 and J4/5/6 editions include all validation improvements
 
 ### 1.0.0 (March 2026)
 
@@ -125,5 +172,6 @@ Export files are fully portable between Joomla sites. The importer handles ID co
 - Menu import/export with hierarchy preservation
 - Article and category import/export
 - User import/export with group and profile data
-- Dark mode support
-- Joomla 4, 5, and 6 compatibility
+- Dark mode support (J4/5/6)
+- Joomla 3, 4, 5, and 6 compatibility
+- Cross-version JSON format for migrating between any Joomla version

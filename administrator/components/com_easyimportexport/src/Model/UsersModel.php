@@ -10,6 +10,15 @@ use Joomla\Database\DatabaseInterface;
 
 class UsersModel extends BaseDatabaseModel
 {
+    protected function filterColumns(DatabaseInterface $db, string $table, array $data): array
+    {
+        static $columnCache = [];
+        if (!isset($columnCache[$table])) {
+            $columnCache[$table] = array_keys($db->getTableColumns($table));
+        }
+        return array_intersect_key($data, array_flip($columnCache[$table]));
+    }
+
     public function getUsers(string $search = '', int $groupId = 0, int $block = -1): array
     {
         $db = $this->getDatabase();
@@ -340,19 +349,12 @@ class UsersModel extends BaseDatabaseModel
 
     protected function insertUser(DatabaseInterface $db, array $data): ?int
     {
-        $cols = [
-            'name', 'username', 'email', 'password', 'block', 'sendEmail',
-            'registerDate', 'lastvisitDate', 'activation', 'params',
-            'lastResetTime', 'resetCount', 'otpKey', 'otep', 'requireReset',
-        ];
-
-        if ($this->hasTableColumn($db, '#__users', 'authProvider')) {
-            $cols[] = 'authProvider';
-        }
+        $data = $this->filterColumns($db, '#__users', $data);
+        unset($data['id']);
 
         $obj = new \stdClass();
-        foreach ($cols as $col) {
-            $obj->$col = $data[$col] ?? null;
+        foreach ($data as $col => $val) {
+            $obj->$col = $val;
         }
 
         if ($db->insertObject('#__users', $obj, 'id')) {
@@ -363,21 +365,11 @@ class UsersModel extends BaseDatabaseModel
 
     protected function updateUser(DatabaseInterface $db, array $data): bool
     {
-        $cols = [
-            'id', 'name', 'username', 'email', 'password', 'block', 'sendEmail',
-            'registerDate', 'lastvisitDate', 'activation', 'params',
-            'lastResetTime', 'resetCount', 'otpKey', 'otep', 'requireReset',
-        ];
-
-        if ($this->hasTableColumn($db, '#__users', 'authProvider')) {
-            $cols[] = 'authProvider';
-        }
+        $data = $this->filterColumns($db, '#__users', $data);
 
         $obj = new \stdClass();
-        foreach ($cols as $col) {
-            if (isset($data[$col])) {
-                $obj->$col = $data[$col];
-            }
+        foreach ($data as $col => $val) {
+            $obj->$col = $val;
         }
 
         return $db->updateObject('#__users', $obj, 'id');
