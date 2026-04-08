@@ -163,7 +163,7 @@ Export files are fully portable between any Joomla version (3, 4, 5, 6). The imp
 
 ### 2.1.0 (March 2026)
 
-- Article exports now produce ZIP files with raw media instead of base64-in-JSON
+- Article exports now include its medias
 - Import accepts both ZIP (recommended) and legacy JSON formats
 - Much smaller export files and lower memory usage
 - Both J3 and J4/5/6 editions include ZIP media support
