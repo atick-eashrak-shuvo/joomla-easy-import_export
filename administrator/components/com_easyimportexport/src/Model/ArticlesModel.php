@@ -185,9 +185,11 @@ class ArticlesModel extends BaseDatabaseModel
             unset($article['checked_out'], $article['checked_out_time'], $article['asset_id']);
         }
 
+        $media = $this->collectMediaFromArticles($articles);
+
         return [
             'meta' => [
-                'format_version' => '1.0',
+                'format_version' => '1.1',
                 'type'           => 'articles',
                 'export_date'    => date('Y-m-d H:i:s'),
                 'joomla_version' => JVERSION,
@@ -195,9 +197,11 @@ class ArticlesModel extends BaseDatabaseModel
                 'site_url'       => (string) \Joomla\CMS\Uri\Uri::root(),
                 'article_count'  => count($articles),
                 'category_count' => count($categories),
+                'media_count'    => count($media),
             ],
             'categories' => $categories,
             'articles'   => $articles,
+            'media'      => $media,
         ];
     }
 
@@ -235,7 +239,8 @@ class ArticlesModel extends BaseDatabaseModel
     {
         $result = [
             'success' => true, 'imported' => 0, 'skipped' => 0,
-            'updated' => 0, 'cats_created' => 0, 'error' => '', 'warnings' => [],
+            'updated' => 0, 'cats_created' => 0, 'media_written' => 0,
+            'error' => '', 'warnings' => [],
         ];
 
         $db = $this->getDatabase();
@@ -296,6 +301,15 @@ class ArticlesModel extends BaseDatabaseModel
             } catch (\Exception $e) {
                 $result['warnings'][] = sprintf('Error importing article "%s": %s', $article['title'] ?? 'Unknown', $e->getMessage());
                 $result['skipped']++;
+            }
+        }
+
+        $mediaFiles = $data['media'] ?? [];
+        if (!empty($mediaFiles)) {
+            $mediaResult = $this->writeMediaFiles($mediaFiles);
+            $result['media_written'] = $mediaResult['written'];
+            foreach ($mediaResult['warnings'] as $w) {
+                $result['warnings'][] = $w;
             }
         }
 
@@ -624,5 +638,154 @@ class ArticlesModel extends BaseDatabaseModel
         }
 
         return $db->updateObject('#__categories', $obj, 'id');
+    }
+
+    // --- Media helpers ---
+
+    protected function collectMediaFromArticles(array $articles): array
+    {
+        $paths = [];
+
+        foreach ($articles as $article) {
+            if (!empty($article['images'])) {
+                $imgs = json_decode($article['images'], true);
+                if (is_array($imgs)) {
+                    foreach (['image_intro', 'image_fulltext'] as $key) {
+                        if (!empty($imgs[$key])) {
+                            $paths[$imgs[$key]] = true;
+                        }
+                    }
+                }
+            }
+
+            foreach (['introtext', 'fulltext'] as $field) {
+                if (!empty($article[$field])) {
+                    $this->extractInlineImages($article[$field], $paths);
+                }
+            }
+        }
+
+        return $this->readMediaFiles(array_keys($paths));
+    }
+
+    protected function extractInlineImages(string $html, array &$paths): void
+    {
+        if (preg_match_all('/<img[^>]+src=["\']([^"\']+)["\']/i', $html, $matches)) {
+            foreach ($matches[1] as $src) {
+                if ($this->isLocalPath($src)) {
+                    $paths[$src] = true;
+                }
+            }
+        }
+
+        if (preg_match_all('/background[-\w]*:\s*url\(["\']?([^"\')\s]+)["\']?\)/i', $html, $matches)) {
+            foreach ($matches[1] as $src) {
+                if ($this->isLocalPath($src)) {
+                    $paths[$src] = true;
+                }
+            }
+        }
+    }
+
+    protected function isLocalPath(string $path): bool
+    {
+        if (preg_match('#^https?://#i', $path) || preg_match('#^//#', $path) || preg_match('#^data:#i', $path)) {
+            return false;
+        }
+        return true;
+    }
+
+    protected function readMediaFiles(array $relativePaths): array
+    {
+        $media = [];
+        $root = JPATH_ROOT . '/';
+        $allowedExt = ['jpg', 'jpeg', 'png', 'gif', 'webp', 'svg', 'bmp', 'ico'];
+        $maxSize = 10 * 1024 * 1024;
+
+        foreach ($relativePaths as $relPath) {
+            $relPath = ltrim($relPath, '/');
+            $ext = strtolower(pathinfo($relPath, PATHINFO_EXTENSION));
+
+            if (!in_array($ext, $allowedExt, true)) {
+                continue;
+            }
+
+            $absPath = $root . $relPath;
+            $absPath = realpath($absPath);
+
+            if (!$absPath || strpos($absPath, realpath($root)) !== 0 || !is_file($absPath)) {
+                continue;
+            }
+
+            $size = filesize($absPath);
+            if ($size > $maxSize || $size === 0) {
+                continue;
+            }
+
+            $contents = file_get_contents($absPath);
+            if ($contents === false) {
+                continue;
+            }
+
+            $media[] = [
+                'path'     => $relPath,
+                'mime'     => mime_content_type($absPath) ?: 'application/octet-stream',
+                'size'     => $size,
+                'data'     => base64_encode($contents),
+            ];
+        }
+
+        return $media;
+    }
+
+    protected function writeMediaFiles(array $media): array
+    {
+        $result = ['written' => 0, 'skipped' => 0, 'warnings' => []];
+        $root = JPATH_ROOT . '/';
+
+        foreach ($media as $file) {
+            $relPath = $file['path'] ?? '';
+            $data = $file['data'] ?? '';
+
+            if (empty($relPath) || empty($data)) {
+                $result['skipped']++;
+                continue;
+            }
+
+            $relPath = ltrim($relPath, '/');
+
+            if (strpos($relPath, '..') !== false) {
+                $result['warnings'][] = sprintf('Skipped suspicious path: %s', $relPath);
+                $result['skipped']++;
+                continue;
+            }
+
+            $absPath = $root . $relPath;
+            $dir = dirname($absPath);
+
+            if (!is_dir($dir)) {
+                if (!mkdir($dir, 0755, true)) {
+                    $result['warnings'][] = sprintf('Could not create directory: %s', $dir);
+                    $result['skipped']++;
+                    continue;
+                }
+            }
+
+            $decoded = base64_decode($data, true);
+            if ($decoded === false) {
+                $result['warnings'][] = sprintf('Invalid base64 data for: %s', $relPath);
+                $result['skipped']++;
+                continue;
+            }
+
+            if (file_put_contents($absPath, $decoded) !== false) {
+                $result['written']++;
+            } else {
+                $result['warnings'][] = sprintf('Could not write file: %s', $relPath);
+                $result['skipped']++;
+            }
+        }
+
+        return $result;
     }
 }

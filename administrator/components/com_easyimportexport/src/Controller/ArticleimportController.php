@@ -52,6 +52,11 @@ class ArticleimportController extends BaseController
                 $result['imported'], $result['skipped'], $result['updated'], $result['cats_created'] ?? 0
             );
             $app->enqueueMessage($msg, 'message');
+
+            $mediaWritten = $result['media_written'] ?? 0;
+            if ($mediaWritten > 0) {
+                $app->enqueueMessage(Text::sprintf('COM_EASYIMPORTEXPORT_MEDIA_IMPORT_SUCCESS', $mediaWritten), 'message');
+            }
         } else {
             $app->enqueueMessage(Text::sprintf('COM_EASYIMPORTEXPORT_IMPORT_FAILED', $result['error']), 'error');
         }

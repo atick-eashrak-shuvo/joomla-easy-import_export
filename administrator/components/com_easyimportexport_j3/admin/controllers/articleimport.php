@@ -45,6 +45,11 @@ class EasyimportexportControllerArticleimport extends JControllerLegacy
         if ($result['success']) {
             $msg = JText::sprintf('COM_EASYIMPORTEXPORT_IMPORT_SUCCESS', $result['imported'], $result['skipped'], $result['updated']);
             $app->enqueueMessage($msg, 'message');
+
+            $mediaWritten = isset($result['media_written']) ? (int) $result['media_written'] : 0;
+            if ($mediaWritten > 0) {
+                $app->enqueueMessage(JText::sprintf('COM_EASYIMPORTEXPORT_MEDIA_IMPORT_SUCCESS', $mediaWritten), 'message');
+            }
         } else {
             $app->enqueueMessage(JText::sprintf('COM_EASYIMPORTEXPORT_IMPORT_FAILED', $result['error']), 'error');
         }

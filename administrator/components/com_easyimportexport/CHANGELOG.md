@@ -6,6 +6,26 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ---
 
+## [2.1.0] - 2026-03-09
+
+### Added
+
+- **Article media export/import** — Article images are now automatically included in the export JSON file. This covers:
+  - Intro images and full article images from the `images` field
+  - Inline images embedded in article body content (`introtext` and `fulltext`)
+  - CSS background images referenced in article content
+- Media files are base64-encoded in the JSON export and automatically written to the correct paths on the target site during import
+- Supported formats: JPG, JPEG, PNG, GIF, WebP, SVG, BMP, ICO (up to 10 MB per file)
+- Import result now displays the number of media files written
+- Security: path traversal protection, file type validation, and size limits
+
+### Improved
+
+- Export format version bumped to 1.1 to indicate media inclusion
+- Import notes updated to mention media is included automatically
+
+---
+
 ## [2.0.0] - 2026-03-09
 
 ### Added

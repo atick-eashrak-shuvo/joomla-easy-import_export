@@ -1,6 +1,6 @@
 # Easy Import/Export for Joomla
 
-**Version:** 2.0.0
+**Version:** 2.1.0
 **Author:** Atick Eashrak Shuvo
 **License:** GNU General Public License v3 or later
 **Compatibility:** Joomla 3.4+, 4.x, 5.x, 6.x
@@ -13,8 +13,8 @@ A powerful Joomla administrator component that lets you import and export module
 
 | Package | Joomla Version | PHP Version | File |
 |---------|---------------|-------------|------|
-| **J4/5/6 Edition** | 4.0+ / 5.x / 6.x | PHP 8.1+ | `com_easyimportexport_v2.0.0.zip` |
-| **J3 Edition** | 3.4 – 3.10 | PHP 5.6+ | `com_easyimportexport_j3_v2.0.0.zip` |
+| **J4/5/6 Edition** | 4.0+ / 5.x / 6.x | PHP 8.1+ | `com_easyimportexport_v2.1.0.zip` |
+| **J3 Edition** | 3.4 – 3.10 | PHP 5.6+ | `com_easyimportexport_j3_v2.1.0.zip` |
 
 Both packages produce the **same JSON export format**, enabling seamless cross-version migration:
 
@@ -54,6 +54,8 @@ Both packages produce the **same JSON export format**, enabling seamless cross-v
 - Export selected articles with their associated categories
 - Export all articles, filter by category, or export categories only
 - Preserves full article data including introtext, fulltext, images, URLs, metadata, featured flag, and custom fields
+- **Media export/import** — article images (intro, full, and inline) are automatically included in the export and restored on import
+- Supports JPG, PNG, GIF, WebP, SVG, BMP, ICO (up to 10 MB per file)
 - Automatically creates or maps categories during article import
 - Category import preserves hierarchy (parent-child, level, path)
 - Import with optional overwrite — matches articles by ID or alias, categories by alias+extension
@@ -94,14 +96,14 @@ The `filterColumns()` system in both editions automatically handles schema diffe
 
 ### Joomla 4 / 5 / 6
 
-1. Download `com_easyimportexport_v2.0.0.zip`
+1. Download `com_easyimportexport_v2.1.0.zip`
 2. In the Joomla administrator, go to **System → Install → Extensions**
 3. Upload the ZIP file and install
 4. Access the component from the admin sidebar: **Components → Easy Import/Export**
 
 ### Joomla 3
 
-1. Download `com_easyimportexport_j3_v2.0.0.zip`
+1. Download `com_easyimportexport_j3_v2.1.0.zip`
 2. In the Joomla administrator, go to **Extensions → Extension Manager → Upload Package File**
 3. Upload the ZIP file and install
 4. Access the component from the admin menu: **Components → Easy Import/Export**
@@ -157,6 +159,12 @@ Export files are fully portable between any Joomla version (3, 4, 5, 6). The imp
 ---
 
 ## Changelog
+
+### 2.1.0 (March 2026)
+
+- Article media (intro images, full images, inline images) now included in exports and restored on import
+- Supports JPG, PNG, GIF, WebP, SVG, BMP, ICO up to 10 MB per file
+- Both J3 and J4/5/6 editions include media support
 
 ### 2.0.0 (March 2026)
 
