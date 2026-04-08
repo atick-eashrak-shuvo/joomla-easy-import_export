@@ -125,11 +125,11 @@ class EasyimportexportModelArticles extends JModelLegacy
             unset($article['checked_out'], $article['checked_out_time'], $article['asset_id']);
         }
 
-        $media = $this->collectMediaFromArticles($articles);
+        $mediaPaths = $this->collectMediaPaths($articles);
 
         return array(
             'meta'       => array(
-                'format_version' => '1.1',
+                'format_version' => '2.0',
                 'type'           => 'articles',
                 'export_date'    => date('Y-m-d H:i:s'),
                 'joomla_version' => JVERSION,
@@ -137,15 +137,15 @@ class EasyimportexportModelArticles extends JModelLegacy
                 'site_url'       => JUri::root(),
                 'article_count'  => count($articles),
                 'category_count' => count($categories),
-                'media_count'    => count($media),
+                'media_count'    => count($mediaPaths),
             ),
-            'categories' => $categories,
-            'articles'   => $articles,
-            'media'      => $media,
+            'categories'  => $categories,
+            'articles'    => $articles,
+            'media_files' => $mediaPaths,
         );
     }
 
-    public function importArticles(array $data, $overwrite = false)
+    public function importArticles(array $data, $overwrite = false, $mediaDir = '')
     {
         $result = array(
             'success'      => true,
@@ -217,9 +217,14 @@ class EasyimportexportModelArticles extends JModelLegacy
             }
         }
 
-        $mediaFiles = isset($data['media']) ? $data['media'] : array();
-        if (!empty($mediaFiles)) {
-            $mediaResult = $this->writeMediaFiles($mediaFiles);
+        if (!empty($mediaDir) && is_dir($mediaDir)) {
+            $mediaResult = $this->writeMediaFromDirectory($mediaDir);
+            $result['media_written'] = $mediaResult['written'];
+            foreach ($mediaResult['warnings'] as $w) {
+                $result['warnings'][] = $w;
+            }
+        } elseif (!empty($data['media'])) {
+            $mediaResult = $this->writeMediaFromBase64($data['media']);
             $result['media_written'] = $mediaResult['written'];
             foreach ($mediaResult['warnings'] as $w) {
                 $result['warnings'][] = $w;
@@ -495,7 +500,7 @@ class EasyimportexportModelArticles extends JModelLegacy
 
     // --- Media helpers ---
 
-    protected function collectMediaFromArticles(array $articles)
+    public function collectMediaPaths(array $articles)
     {
         $paths = array();
 
@@ -518,7 +523,7 @@ class EasyimportexportModelArticles extends JModelLegacy
             }
         }
 
-        return $this->readMediaFiles(array_keys($paths));
+        return $this->validateMediaPaths(array_keys($paths));
     }
 
     protected function extractInlineImages($html, &$paths)
@@ -548,9 +553,9 @@ class EasyimportexportModelArticles extends JModelLegacy
         return true;
     }
 
-    protected function readMediaFiles(array $relativePaths)
+    protected function validateMediaPaths(array $relativePaths)
     {
-        $media = array();
+        $valid = array();
         $root = JPATH_ROOT . '/';
         $allowedExt = array('jpg', 'jpeg', 'png', 'gif', 'webp', 'svg', 'bmp', 'ico');
         $maxSize = 10 * 1024 * 1024;
@@ -563,8 +568,7 @@ class EasyimportexportModelArticles extends JModelLegacy
                 continue;
             }
 
-            $absPath = $root . $relPath;
-            $absPath = realpath($absPath);
+            $absPath = realpath($root . $relPath);
 
             if (!$absPath || strpos($absPath, realpath($root)) !== 0 || !is_file($absPath)) {
                 continue;
@@ -575,28 +579,61 @@ class EasyimportexportModelArticles extends JModelLegacy
                 continue;
             }
 
-            $contents = file_get_contents($absPath);
-            if ($contents === false) {
+            $valid[] = $relPath;
+        }
+
+        return $valid;
+    }
+
+    public function writeMediaFromDirectory($mediaDir)
+    {
+        $result = array('written' => 0, 'skipped' => 0, 'warnings' => array());
+        $root = JPATH_ROOT . '/';
+        $mediaDirReal = realpath($mediaDir);
+
+        if (!$mediaDirReal || !is_dir($mediaDirReal)) {
+            return $result;
+        }
+
+        $iterator = new RecursiveIteratorIterator(
+            new RecursiveDirectoryIterator($mediaDirReal, FilesystemIterator::SKIP_DOTS),
+            RecursiveIteratorIterator::LEAVES_ONLY
+        );
+
+        foreach ($iterator as $fileInfo) {
+            $srcPath = $fileInfo->getPathname();
+            $relPath = substr($srcPath, strlen($mediaDirReal) + 1);
+            $relPath = str_replace('\\', '/', $relPath);
+
+            if (strpos($relPath, '..') !== false) {
+                $result['warnings'][] = sprintf('Skipped suspicious path: %s', $relPath);
+                $result['skipped']++;
                 continue;
             }
 
-            $mimeType = 'application/octet-stream';
-            if (function_exists('mime_content_type')) {
-                $mimeType = mime_content_type($absPath);
+            $destPath = $root . $relPath;
+            $destDir = dirname($destPath);
+
+            if (!is_dir($destDir)) {
+                if (!mkdir($destDir, 0755, true)) {
+                    $result['warnings'][] = sprintf('Could not create directory for: %s', $relPath);
+                    $result['skipped']++;
+                    continue;
+                }
             }
 
-            $media[] = array(
-                'path' => $relPath,
-                'mime' => $mimeType,
-                'size' => $size,
-                'data' => base64_encode($contents),
-            );
+            if (copy($srcPath, $destPath)) {
+                $result['written']++;
+            } else {
+                $result['warnings'][] = sprintf('Could not write file: %s', $relPath);
+                $result['skipped']++;
+            }
         }
 
-        return $media;
+        return $result;
     }
 
-    protected function writeMediaFiles(array $media)
+    public function writeMediaFromBase64(array $media)
     {
         $result = array('written' => 0, 'skipped' => 0, 'warnings' => array());
         $root = JPATH_ROOT . '/';

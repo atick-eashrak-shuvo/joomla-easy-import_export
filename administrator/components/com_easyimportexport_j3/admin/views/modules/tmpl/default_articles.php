@@ -176,7 +176,7 @@ foreach ($articles as $a) {
                 <div class="upload-icon"><i class="icon-upload"></i></div>
                 <p><strong><?php echo JText::_('COM_EASYIMPORTEXPORT_IMPORT_DROP_FILE'); ?></strong></p>
                 <p class="muted"><?php echo JText::_('COM_EASYIMPORTEXPORT_IMPORT_OR_BROWSE'); ?></p>
-                <input type="file" name="import_file_articles" id="fiArticles" accept=".json" style="display:none" />
+                <input type="file" name="import_file_articles" id="fiArticles" accept=".json,.zip" style="display:none" />
                 <button type="button" class="btn" onclick="document.getElementById('fiArticles').click()">
                     <i class="icon-folder-open"></i> <?php echo JText::_('COM_EASYIMPORTEXPORT_IMPORT_BROWSE'); ?>
                 </button>

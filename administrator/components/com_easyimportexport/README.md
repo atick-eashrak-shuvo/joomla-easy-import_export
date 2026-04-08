@@ -54,7 +54,8 @@ Both packages produce the **same JSON export format**, enabling seamless cross-v
 - Export selected articles with their associated categories
 - Export all articles, filter by category, or export categories only
 - Preserves full article data including introtext, fulltext, images, URLs, metadata, featured flag, and custom fields
-- **Media export/import** — article images (intro, full, and inline) are automatically included in the export and restored on import
+- **ZIP-based media export/import** — article exports produce a `.zip` containing a clean `data.json` plus a `media/` folder with raw image files (intro, full, inline images, CSS backgrounds)
+- Import accepts both `.zip` (recommended) and legacy `.json` formats
 - Supports JPG, PNG, GIF, WebP, SVG, BMP, ICO (up to 10 MB per file)
 - Automatically creates or maps categories during article import
 - Category import preserves hierarchy (parent-child, level, path)
@@ -162,9 +163,10 @@ Export files are fully portable between any Joomla version (3, 4, 5, 6). The imp
 
 ### 2.1.0 (March 2026)
 
-- Article media (intro images, full images, inline images) now included in exports and restored on import
-- Supports JPG, PNG, GIF, WebP, SVG, BMP, ICO up to 10 MB per file
-- Both J3 and J4/5/6 editions include media support
+- Article exports now produce ZIP files with raw media instead of base64-in-JSON
+- Import accepts both ZIP (recommended) and legacy JSON formats
+- Much smaller export files and lower memory usage
+- Both J3 and J4/5/6 editions include ZIP media support
 
 ### 2.0.0 (March 2026)
 

@@ -10,19 +10,19 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ### Added
 
-- **Article media export/import** — Article images are now automatically included in the export JSON file. This covers:
-  - Intro images and full article images from the `images` field
-  - Inline images embedded in article body content (`introtext` and `fulltext`)
-  - CSS background images referenced in article content
-- Media files are base64-encoded in the JSON export and automatically written to the correct paths on the target site during import
+- **ZIP-based article media export** — Article exports now produce a `.zip` file containing a clean `data.json` and a `media/` folder with raw image files. This replaces the previous base64-in-JSON approach for much better performance and smaller file sizes.
+- Media collection covers intro images, full article images, inline `<img>` tags, and CSS background images
 - Supported formats: JPG, JPEG, PNG, GIF, WebP, SVG, BMP, ICO (up to 10 MB per file)
-- Import result now displays the number of media files written
-- Security: path traversal protection, file type validation, and size limits
+- Import accepts both `.zip` (recommended) and legacy `.json` files (backward compatible with v2.0.0 base64 exports)
+- Import result displays the number of media files restored
+- Security: path traversal protection, file type validation, size limits, and temp directory cleanup
 
 ### Improved
 
-- Export format version bumped to 1.1 to indicate media inclusion
-- Import notes updated to mention media is included automatically
+- Export format version bumped to 2.0
+- Article exports are significantly smaller and faster (raw binary in ZIP vs base64 in JSON)
+- Lower memory usage during export and import — no base64 encoding/decoding overhead
+- Category-only exports remain as plain JSON (no media involved)
 
 ---
 

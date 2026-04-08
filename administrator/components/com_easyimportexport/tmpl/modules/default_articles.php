@@ -180,7 +180,7 @@ foreach ($articles as $a) {
                     <div class="upload-icon"><span class="icon-upload"></span></div>
                     <p class="mb-2"><strong><?php echo Text::_('COM_EASYIMPORTEXPORT_IMPORT_DROP_FILE'); ?></strong></p>
                     <p class="text-muted mb-3"><?php echo Text::_('COM_EASYIMPORTEXPORT_IMPORT_OR_BROWSE'); ?></p>
-                    <input type="file" name="import_file_articles" id="fiArticles" accept=".json" class="d-none" />
+                    <input type="file" name="import_file_articles" id="fiArticles" accept=".json,.zip" class="d-none" />
                     <button type="button" class="btn btn-outline-primary" onclick="document.getElementById('fiArticles').click()">
                         <span class="icon-folder-open"></span> <?php echo Text::_('COM_EASYIMPORTEXPORT_IMPORT_BROWSE'); ?>
                     </button>
