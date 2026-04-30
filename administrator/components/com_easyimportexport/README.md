@@ -1,6 +1,6 @@
 # Easy Import/Export for Joomla
 
-**Version:** 2.1.0
+**Version:** 2.1.1
 **Author:** Atick Eashrak Shuvo
 **License:** GNU General Public License v3 or later
 **Compatibility:** Joomla 3.4+, 4.x, 5.x, 6.x
@@ -13,8 +13,8 @@ A powerful Joomla administrator component that lets you import and export module
 
 | Package | Joomla Version | PHP Version | File |
 |---------|---------------|-------------|------|
-| **J4/5/6 Edition** | 4.0+ / 5.x / 6.x | PHP 8.1+ | `com_easyimportexport_v2.1.0.zip` |
-| **J3 Edition** | 3.4 – 3.10 | PHP 5.6+ | `com_easyimportexport_j3_v2.1.0.zip` |
+| **J4/5/6 Edition** | 4.0+ / 5.x / 6.x | PHP 8.1+ | `com_easyimportexport_v2.1.1.zip` |
+| **J3 Edition** | 3.4 – 3.10 | PHP 5.6+ | `com_easyimportexport_j3_v2.1.1.zip` |
 
 Both packages produce the **same JSON export format**, enabling seamless cross-version migration:
 
@@ -97,14 +97,14 @@ The `filterColumns()` system in both editions automatically handles schema diffe
 
 ### Joomla 4 / 5 / 6
 
-1. Download `com_easyimportexport_v2.1.0.zip`
+1. Download `com_easyimportexport_v2.1.1.zip`
 2. In the Joomla administrator, go to **System → Install → Extensions**
 3. Upload the ZIP file and install
 4. Access the component from the admin sidebar: **Components → Easy Import/Export**
 
 ### Joomla 3
 
-1. Download `com_easyimportexport_j3_v2.1.0.zip`
+1. Download `com_easyimportexport_j3_v2.1.1.zip`
 2. In the Joomla administrator, go to **Extensions → Extension Manager → Upload Package File**
 3. Upload the ZIP file and install
 4. Access the component from the admin menu: **Components → Easy Import/Export**
@@ -161,7 +161,7 @@ Export files are fully portable between any Joomla version (3, 4, 5, 6). The imp
 
 ## Changelog
 
-### 2.1.0 (March 2026)
+### 2.1.1 (March 2026)
 
 - Article exports now produce ZIP files with raw media instead of base64-in-JSON
 - Import accepts both ZIP (recommended) and legacy JSON formats

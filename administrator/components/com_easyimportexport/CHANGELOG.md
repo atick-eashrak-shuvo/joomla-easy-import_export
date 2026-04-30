@@ -6,6 +6,14 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ---
 
+## [2.1.1] - 2026-04-30
+
+### Fixed
+
+- Fix: title character size issue
+
+---
+
 ## [2.1.0] - 2026-03-09
 
 ### Added

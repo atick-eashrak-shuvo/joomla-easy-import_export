@@ -19,6 +19,18 @@ class ArticlesModel extends BaseDatabaseModel
         return array_intersect_key($data, array_flip($columnCache[$table]));
     }
 
+    protected function truncateAssetTitle(string $title): string
+    {
+        // #__assets.title is VARCHAR(100); use multibyte-safe truncation to preserve UTF-8 chars.
+        if (function_exists('mb_strlen') && mb_strlen($title, 'UTF-8') > 100) {
+            return mb_substr($title, 0, 100, 'UTF-8');
+        }
+        if (strlen($title) > 100) {
+            return substr($title, 0, 100);
+        }
+        return $title;
+    }
+
     public function getCategories(string $search = ''): array
     {
         $db = $this->getDatabase();
@@ -386,7 +398,7 @@ class ArticlesModel extends BaseDatabaseModel
         $asset->rgt = $rgt;
         $asset->level = $parent ? 4 : 1;
         $asset->name = $assetName;
-        $asset->title = $title;
+        $asset->title = $this->truncateAssetTitle($title);
         $asset->rules = '{}';
         $db->insertObject('#__assets', $asset, 'id');
 
@@ -550,7 +562,7 @@ class ArticlesModel extends BaseDatabaseModel
         $asset->rgt = $rgt;
         $asset->level = 3;
         $asset->name = $assetName;
-        $asset->title = $title;
+        $asset->title = $this->truncateAssetTitle($title);
         $asset->rules = '{}';
         $db->insertObject('#__assets', $asset, 'id');
 
